@@ -133,11 +133,6 @@ impl Intersection {
             Direction::South => (4, 0),
             Direction::East => (0, 5),
             Direction::West => (9, 4),
-
-            /* Direction::North => (4, 9),  // No left hand traffic here
-            Direction::South => (5, 0),
-            Direction::East => (0, 4),
-            Direction::West => (9, 5), */
         };
 
         let street_idx = if direction == Direction::North || direction == Direction::South { 0 } else { 1 };
@@ -160,8 +155,6 @@ impl Intersection {
 
         // Draw roads
         canvas.set_draw_color(Color::RGB(100, 100, 100));
-        // canvas.fill_rect(Rect::new(350, 0, 100, 600))?;
-        // canvas.fill_rect(Rect::new(0, 250, 800, 100))?;
 
         let hor_tile = canvas.window().size().0 / 10;
         let vert_road_left = hor_tile * 4;
