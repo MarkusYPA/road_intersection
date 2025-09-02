@@ -82,7 +82,6 @@ impl Intersection {
                         let next_pos = get_next_position(vehicle.position, vehicle.direction, vehicle.route, light, &self.grid);
 
                         if next_pos.0 < 0 || next_pos.0 > 9 || next_pos.1 < 0 || next_pos.1 > 9 {
-                            println!("Removing vehicle at {:?}", vehicle.position);
                             vehicle.active = false;
                             self.grid[vehicle.position.0 as usize][vehicle.position.1 as usize] = 0;
                             continue;
