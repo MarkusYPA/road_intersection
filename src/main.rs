@@ -94,8 +94,6 @@ impl Intersection {
                             vehicle.position = next_pos;
                             self.grid[next_pos.0 as usize][next_pos.1 as usize] = 1;
                         }
-
-
                     }
                 }
             }
@@ -131,10 +129,15 @@ impl Intersection {
         };
 
         let position = match direction {
-            Direction::North => (4, 9),
+            Direction::North => (5, 9),
+            Direction::South => (4, 0),
+            Direction::East => (0, 5),
+            Direction::West => (9, 4),
+
+            /* Direction::North => (4, 9),
             Direction::South => (5, 0),
             Direction::East => (0, 4),
-            Direction::West => (9, 5),
+            Direction::West => (9, 5), */
         };
 
         let street_idx = if direction == Direction::North || direction == Direction::South { 0 } else { 1 };
@@ -223,10 +226,11 @@ fn get_next_position(pos: (i32, i32), dir: Direction, route: Route, light: &Traf
             Route::Left => if y < 5 { (x, y + 1) } else { (x + 1, y) },
             Route::Right => if y < 5 { (x, y + 1) } else { (x - 1, y) },
         },
+
         Direction::East => match route {
             Route::Straight => (x + 1, y),
-            Route::Left => if y < 5 { (x + 1, y) } else { (x, y - 1) },
-            Route::Right => if y < 5 { (x + 1, y) } else { (x, y + 1) },
+            Route::Left => if x < 5 { (x + 1, y) } else { (x, y - 1) },
+            Route::Right => if x < 5 { (x + 1, y) } else { (x, y + 1) },
         },
         Direction::West => match route {
             Route::Straight => (x - 1, y),
@@ -234,13 +238,6 @@ fn get_next_position(pos: (i32, i32), dir: Direction, route: Route, light: &Traf
             Route::Right => if x > 4 { (x - 1, y) } else { (x, y - 1) },
         },
     };
-
-    // position validation not necessary 
-    /* if next_pos.0 >= 0 && next_pos.0 < 10 && next_pos.1 >= 0 && next_pos.1 < 10 && grid[next_pos.0 as usize][next_pos.1 as usize] == 0 {
-        next_pos
-    } else {
-        pos
-    } */
 
     next_pos
 }
