@@ -134,7 +134,7 @@ impl Intersection {
             Direction::East => (0, 5),
             Direction::West => (9, 4),
 
-            /* Direction::North => (4, 9),
+            /* Direction::North => (4, 9),  // No left hand traffic here
             Direction::South => (5, 0),
             Direction::East => (0, 4),
             Direction::West => (9, 5), */
@@ -160,10 +160,23 @@ impl Intersection {
 
         // Draw roads
         canvas.set_draw_color(Color::RGB(100, 100, 100));
-        canvas.fill_rect(Rect::new(350, 0, 100, 600))?;
-        canvas.fill_rect(Rect::new(0, 250, 800, 100))?;
+        // canvas.fill_rect(Rect::new(350, 0, 100, 600))?;
+        // canvas.fill_rect(Rect::new(0, 250, 800, 100))?;
+
+        let hor_tile = canvas.window().size().0 / 10;
+        let vert_road_left = hor_tile * 4;
+
+        let vert_tile = canvas.window().size().1 / 10;
+        let hor_road_top = vert_tile * 4;
+
+        canvas.fill_rect(Rect::new(vert_road_left as i32, 0, hor_tile * 2, canvas.window().size().1))?;
+        canvas.fill_rect(Rect::new(0, hor_road_top as i32, canvas.window().size().0, vert_tile * 2))?;
+
 
         // Draw traffic lights
+        let light_width = 10;
+        let l_off_h = hor_tile / 2 - light_width / 2;
+        let l_off_v = vert_tile / 2 - light_width / 2;
         for (i, street) in self.streets.iter().enumerate() {
             for (direction, (light, _)) in &street.lanes {
                 let color = match light {
@@ -172,10 +185,10 @@ impl Intersection {
                 };
                 canvas.set_draw_color(color);
                 let rect = match (i, direction) {
-                    (0, Direction::North) => Rect::new(400, 240, 10, 10),
-                    (0, Direction::South) => Rect::new(440, 350, 10, 10),
-                    (1, Direction::East) => Rect::new(340, 300, 10, 10),
-                    (1, Direction::West) => Rect::new(450, 290, 10, 10),
+                    (0, Direction::North) => Rect::new(hor_tile as i32 * 4 + l_off_h as i32, vert_tile as i32 * 4 - light_width as i32 / 2, light_width, light_width),
+                    (0, Direction::South) => Rect::new(hor_tile as i32 * 5 + l_off_h as i32, vert_tile as i32 * 6 - light_width as i32 / 2, light_width, light_width),
+                    (1, Direction::East) => Rect::new(hor_tile as i32 * 6 - light_width as i32 / 2, vert_tile as i32 * 4 + l_off_v as i32, light_width, light_width),
+                    (1, Direction::West) => Rect::new(hor_tile as i32 * 4 - light_width as i32 / 2, vert_tile as i32 * 5 + l_off_v as i32, light_width, light_width),
                     _ => Rect::new(0, 0, 0, 0),
                 };
                 canvas.fill_rect(rect)?;
@@ -183,6 +196,9 @@ impl Intersection {
         }
 
         // Draw vehicles
+        let car_width = 20;
+        let offset_h = hor_tile / 2 - car_width / 2;
+        let offset_v = vert_tile / 2 - car_width / 2;
         for street in &self.streets {
             for (_, (_, vehicles)) in &street.lanes {
                 for vehicle in vehicles {
@@ -192,7 +208,7 @@ impl Intersection {
                         Route::Right => Color::RGB(255, 0, 255),
                     };
                     canvas.set_draw_color(color);
-                    let rect = Rect::new(vehicle.position.0 * 80, vehicle.position.1 * 60, 20, 20);
+                    let rect = Rect::new(vehicle.position.0 * hor_tile as i32 + offset_h as i32, vehicle.position.1 * vert_tile as i32 + offset_v as i32, car_width, car_width);
                     canvas.fill_rect(rect)?;
                 }
             }
@@ -219,23 +235,23 @@ fn get_next_position(pos: (i32, i32), dir: Direction, route: Route, light: &Traf
         Direction::North => match route {
             Route::Straight => (x, y - 1),
             Route::Left => if y > 4 { (x, y - 1) } else { (x - 1, y) },
-            Route::Right => if y > 4 { (x, y - 1) } else { (x + 1, y) },
+            Route::Right => if y > 5 { (x, y - 1) } else { (x + 1, y) },
         },
         Direction::South => match route {
             Route::Straight => (x, y + 1),
             Route::Left => if y < 5 { (x, y + 1) } else { (x + 1, y) },
-            Route::Right => if y < 5 { (x, y + 1) } else { (x - 1, y) },
+            Route::Right => if y < 4 { (x, y + 1) } else { (x - 1, y) },
         },
 
         Direction::East => match route {
             Route::Straight => (x + 1, y),
             Route::Left => if x < 5 { (x + 1, y) } else { (x, y - 1) },
-            Route::Right => if x < 5 { (x + 1, y) } else { (x, y + 1) },
+            Route::Right => if x < 4 { (x + 1, y) } else { (x, y + 1) },
         },
         Direction::West => match route {
             Route::Straight => (x - 1, y),
             Route::Left => if x > 4 { (x - 1, y) } else { (x, y + 1) },
-            Route::Right => if x > 4 { (x - 1, y) } else { (x, y - 1) },
+            Route::Right => if x > 5 { (x - 1, y) } else { (x, y - 1) },
         },
     };
 
@@ -246,7 +262,7 @@ fn main() -> Result<(), String> {
     let sdl_context = sdl2::init()?;
     let video_subsystem = sdl_context.video()?;
 
-    let window = video_subsystem.window("Road Intersection", 800, 600)
+    let window = video_subsystem.window("Road Intersection", 800, 800)
         .position_centered()
         .build()
         .map_err(|e| e.to_string())?;
