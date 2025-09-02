@@ -2,6 +2,12 @@ use std::collections::HashMap;
 use std::thread;
 use std::time::Duration;
 use rand::Rng;
+use sdl2::pixels::Color;
+use sdl2::event::Event;
+use sdl2::keyboard::Keycode;
+use sdl2::rect::Rect;
+use sdl2::render::Canvas;
+use sdl2::video::Window;
 
 #[derive(Debug, PartialEq, Eq, Hash, Clone, Copy)]
 enum Direction {
@@ -26,7 +32,7 @@ enum TrafficLight {
 
 #[derive(Debug, Clone, Copy)]
 struct Vehicle {
-    position: (u8, u8),
+    position: (i32, i32),
     route: Route,
     direction: Direction,
     active: bool,
@@ -60,21 +66,6 @@ impl Intersection {
         streets[0].lanes.get_mut(&Direction::North).unwrap().0 = TrafficLight::Green;
         streets[0].lanes.get_mut(&Direction::South).unwrap().0 = TrafficLight::Green;
         Self { streets, timer: 0, grid: [[0; 10]; 10] }
-    }
-
-    fn print_state(&self) {
-        println!("--------------------");
-        for (i, street) in self.streets.iter().enumerate() {
-            println!("Street {}", i + 1);
-            for (direction, (light, vehicles)) in &street.lanes {
-                let light_state = match light {
-                    TrafficLight::Red => "Red",
-                    TrafficLight::Green => "Green",
-                };
-                println!("  {:?}: {:<5} - Vehicles: {}", direction, light_state, vehicles.len());
-            }
-        }
-        println!("Timer: {}", self.timer);
     }
 
     fn update(&mut self) {
@@ -142,7 +133,7 @@ impl Intersection {
         let street_idx = if direction == Direction::North || direction == Direction::South { 0 } else { 1 };
 
         if self.grid[position.0 as usize][position.1 as usize] == 0 {
-            let vehicle = Vehicle { position, route, direction, active: true };
+            let vehicle = Vehicle { position: (position.0 as i32, position.1 as i32), route, direction, active: true };
             self.streets[street_idx]
                 .lanes
                 .get_mut(&direction)
@@ -153,19 +144,56 @@ impl Intersection {
         }
     }
 
-    fn run(&mut self) {
-        for _ in 0..100 {
-            self.print_state();
-            if rand::thread_rng().gen_bool(0.3) { // 30% chance to spawn a vehicle
-                self.spawn_vehicle(None);
+    fn render(&self, canvas: &mut Canvas<Window>) -> Result<(), String> {
+        canvas.set_draw_color(Color::RGB(0, 0, 0));
+        canvas.clear();
+
+        // Draw roads
+        canvas.set_draw_color(Color::RGB(100, 100, 100));
+        canvas.fill_rect(Rect::new(350, 0, 100, 600))?;
+        canvas.fill_rect(Rect::new(0, 250, 800, 100))?;
+
+        // Draw traffic lights
+        for (i, street) in self.streets.iter().enumerate() {
+            for (direction, (light, _)) in &street.lanes {
+                let color = match light {
+                    TrafficLight::Red => Color::RGB(255, 0, 0),
+                    TrafficLight::Green => Color::RGB(0, 255, 0),
+                };
+                canvas.set_draw_color(color);
+                let rect = match (i, direction) {
+                    (0, Direction::North) => Rect::new(400, 240, 10, 10),
+                    (0, Direction::South) => Rect::new(440, 350, 10, 10),
+                    (1, Direction::East) => Rect::new(340, 300, 10, 10),
+                    (1, Direction::West) => Rect::new(450, 290, 10, 10),
+                    _ => Rect::new(0, 0, 0, 0),
+                };
+                canvas.fill_rect(rect)?;
             }
-            self.update();
-            thread::sleep(Duration::from_millis(500));
         }
+
+        // Draw vehicles
+        for street in &self.streets {
+            for (_, (_, vehicles)) in &street.lanes {
+                for vehicle in vehicles {
+                    let color = match vehicle.route {
+                        Route::Straight => Color::RGB(255, 255, 0),
+                        Route::Left => Color::RGB(0, 255, 255),
+                        Route::Right => Color::RGB(255, 0, 255),
+                    };
+                    canvas.set_draw_color(color);
+                    let rect = Rect::new(vehicle.position.0 * 80, vehicle.position.1 * 60, 20, 20);
+                    canvas.fill_rect(rect)?;
+                }
+            }
+        }
+
+        canvas.present();
+        Ok(())
     }
 }
 
-fn get_next_position(pos: (u8, u8), dir: Direction, route: Route, light: &TrafficLight, grid: &[[u8; 10]; 10]) -> (u8, u8) {
+fn get_next_position(pos: (i32, i32), dir: Direction, route: Route, light: &TrafficLight, grid: &[[u8; 10]; 10]) -> (i32, i32) {
     let (x, y) = pos;
 
     match light {
@@ -179,35 +207,78 @@ fn get_next_position(pos: (u8, u8), dir: Direction, route: Route, light: &Traffi
 
     let next_pos = match dir {
         Direction::North => match route {
-            Route::Straight => (x, y.saturating_sub(1)),
-            Route::Left => if y > 4 { (x, y.saturating_sub(1)) } else { (x.saturating_sub(1), y) },
-            Route::Right => if y > 4 { (x, y.saturating_sub(1)) } else { (x.saturating_add(1), y) },
+            Route::Straight => (x, y - 1),
+            Route::Left => if y > 4 { (x, y - 1) } else { (x - 1, y) },
+            Route::Right => if y > 4 { (x, y - 1) } else { (x + 1, y) },
         },
         Direction::South => match route {
-            Route::Straight => (x, y.saturating_add(1)),
-            Route::Left => if y < 5 { (x, y.saturating_add(1)) } else { (x.saturating_add(1), y) },
-            Route::Right => if y < 5 { (x, y.saturating_add(1)) } else { (x.saturating_sub(1), y) },
+            Route::Straight => (x, y + 1),
+            Route::Left => if y < 5 { (x, y + 1) } else { (x + 1, y) },
+            Route::Right => if y < 5 { (x, y + 1) } else { (x - 1, y) },
         },
         Direction::East => match route {
-            Route::Straight => (x.saturating_add(1), y),
-            Route::Left => if x < 5 { (x.saturating_add(1), y) } else { (x, y.saturating_sub(1)) },
-            Route::Right => if x < 5 { (x.saturating_add(1), y) } else { (x, y.saturating_add(1)) },
+            Route::Straight => (x + 1, y),
+            Route::Left => if y < 5 { (x + 1, y) } else { (x, y - 1) },
+            Route::Right => if y < 5 { (x + 1, y) } else { (x, y + 1) },
         },
         Direction::West => match route {
-            Route::Straight => (x.saturating_sub(1), y),
-            Route::Left => if x > 4 { (x.saturating_sub(1), y) } else { (x, y.saturating_add(1)) },
-            Route::Right => if x > 4 { (x.saturating_sub(1), y) } else { (x, y.saturating_sub(1)) },
+            Route::Straight => (x - 1, y),
+            Route::Left => if x > 4 { (x - 1, y) } else { (x, y + 1) },
+            Route::Right => if x > 4 { (x - 1, y) } else { (x, y - 1) },
         },
     };
 
-    if next_pos.0 < 10 && next_pos.1 < 10 && grid[next_pos.0 as usize][next_pos.1 as usize] == 0 {
+    if next_pos.0 >= 0 && next_pos.0 < 10 && next_pos.1 >= 0 && next_pos.1 < 10 && grid[next_pos.0 as usize][next_pos.1 as usize] == 0 {
         next_pos
     } else {
         pos
     }
 }
 
-fn main() {
+fn main() -> Result<(), String> {
+    let sdl_context = sdl2::init()?;
+    let video_subsystem = sdl_context.video()?;
+
+    let window = video_subsystem.window("Road Intersection", 800, 600)
+        .position_centered()
+        .build()
+        .map_err(|e| e.to_string())?;
+
+    let mut canvas = window.into_canvas().build().map_err(|e| e.to_string())?;
+    let mut event_pump = sdl_context.event_pump()?;
+
     let mut intersection = Intersection::new();
-    intersection.run();
+
+    'running: loop {
+        for event in event_pump.poll_iter() {
+            match event {
+                Event::Quit {..} | Event::KeyDown { keycode: Some(Keycode::Escape), .. } => {
+                    break 'running
+                },
+                Event::KeyDown { keycode: Some(Keycode::Up), .. } => {
+                    intersection.spawn_vehicle(Some(Direction::South));
+                },
+                Event::KeyDown { keycode: Some(Keycode::Down), .. } => {
+                    intersection.spawn_vehicle(Some(Direction::North));
+                },
+                Event::KeyDown { keycode: Some(Keycode::Right), .. } => {
+                    intersection.spawn_vehicle(Some(Direction::West));
+                },
+                Event::KeyDown { keycode: Some(Keycode::Left), .. } => {
+                    intersection.spawn_vehicle(Some(Direction::East));
+                },
+                Event::KeyDown { keycode: Some(Keycode::R), .. } => {
+                    intersection.spawn_vehicle(None);
+                },
+                _ => {}
+            }
+        }
+
+        intersection.update();
+        intersection.render(&mut canvas)?;
+
+        thread::sleep(Duration::from_millis(100));
+    }
+
+    Ok(())
 }

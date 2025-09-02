@@ -4,5 +4,7 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
+anyhow = "1.0.99"
 pancurses = "0.17.0"
 rand = "0.8.5"
+sdl2 = "0.38.0"
