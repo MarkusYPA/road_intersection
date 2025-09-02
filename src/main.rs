@@ -76,19 +76,26 @@ impl Intersection {
         for street in &mut self.streets {
             for (_direction, (light, vehicles)) in street.lanes.iter_mut() {
                 vehicles.retain(|v| v.active);
+
                 for vehicle in vehicles.iter_mut() {
                     if vehicle.active {
                         let next_pos = get_next_position(vehicle.position, vehicle.direction, vehicle.route, light, &self.grid);
+
+                        if next_pos.0 < 0 || next_pos.0 > 9 || next_pos.1 < 0 || next_pos.1 > 9 {
+                            println!("Removing vehicle at {:?}", vehicle.position);
+                            vehicle.active = false;
+                            self.grid[vehicle.position.0 as usize][vehicle.position.1 as usize] = 0;
+                            continue;
+                        }
+
+                        // Only move if grid place is unoccupied
                         if self.grid[next_pos.0 as usize][next_pos.1 as usize] == 0 {
                             self.grid[vehicle.position.0 as usize][vehicle.position.1 as usize] = 0;
                             vehicle.position = next_pos;
                             self.grid[next_pos.0 as usize][next_pos.1 as usize] = 1;
                         }
 
-                        if next_pos.0 > 9 || next_pos.1 > 9 {
-                            vehicle.active = false;
-                            self.grid[vehicle.position.0 as usize][vehicle.position.1 as usize] = 0;
-                        }
+
                     }
                 }
             }
@@ -193,7 +200,7 @@ impl Intersection {
     }
 }
 
-fn get_next_position(pos: (i32, i32), dir: Direction, route: Route, light: &TrafficLight, grid: &[[u8; 10]; 10]) -> (i32, i32) {
+fn get_next_position(pos: (i32, i32), dir: Direction, route: Route, light: &TrafficLight, _grid: &[[u8; 10]; 10]) -> (i32, i32) {
     let (x, y) = pos;
 
     match light {
@@ -228,11 +235,14 @@ fn get_next_position(pos: (i32, i32), dir: Direction, route: Route, light: &Traf
         },
     };
 
-    if next_pos.0 >= 0 && next_pos.0 < 10 && next_pos.1 >= 0 && next_pos.1 < 10 && grid[next_pos.0 as usize][next_pos.1 as usize] == 0 {
+    // position validation not necessary 
+    /* if next_pos.0 >= 0 && next_pos.0 < 10 && next_pos.1 >= 0 && next_pos.1 < 10 && grid[next_pos.0 as usize][next_pos.1 as usize] == 0 {
         next_pos
     } else {
         pos
-    }
+    } */
+
+    next_pos
 }
 
 fn main() -> Result<(), String> {
